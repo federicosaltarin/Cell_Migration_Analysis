@@ -1,0 +1,179 @@
+---
+title: "Cell  Migration timeplapse quantification"
+output: html_notebook
+author: "Federico Saltarin"
+date: '`r format(Sys.Date(), "%B %d, %Y")`'
+---
+As this is an R-Notebook you can run the single chunks or you can also do run all after setting your parameters and get immediately your final results. After running you will also get a html format that shows you the code along with the final results (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+<br> 
+<br>
+<br>
+First we define all the needed libraries
+```{r}
+library(dplyr)
+library(ggplot2)
+library(data.table)
+```
+<br> 
+<br>
+Then define some variables: Time_Res to define our time resolution and Pixel_Size to define the pixel size in um
+```{r}
+Time_Res = 15
+Pixel_Size = 1.24
+```
+<br> 
+<br>
+Here we ask the user which CSV file to open (with the cell migration data)
+```{r}
+Data <- read.csv(tk_choose.files(caption = "Select results file: "))
+```
+<br> 
+<br>
+Here we start the analysis:
+* Unique_ID will identify a specific cell of 1 specific clone 
+* X_Shift and Y_Shift calculate the shift in X and Y, respectively, for each consecutive timepoint 
+* Dist is the distance traveled per timepoint 
+* Instant_Veloc is the istantaneous velocity (per each timepoint) 
+<br>
+* Tot_Dist is the total migration distance
+* Mean_Speed is the average migration speed
+* Persistence is the "directionality" of the cell -> 1 = totally linear 0 = very unlinear
+```{r}
+Data <- Data %>% 
+        mutate(Unique_ID = paste0(Clone, ID)) %>% 
+        mutate(Time = t*Time_Res/60) %>% 
+        group_by(Unique_ID) %>% 
+        mutate(X_Shift = c(diff(Location_Center_X), NA)^2,
+               Y_Shift = c(diff(Location_Center_Y), NA)^2,
+               Dist = sqrt(X_Shift + Y_Shift),
+               Instant_Veloc = Dist/unique(Time[1]),
+               X_Shift = Location_Center_X - Location_Center_X[1],
+               Y_Shift = Location_Center_Y - Location_Center_Y[1])
+
+Data_agg <- Data %>%
+            group_by(Unique_ID)%>%
+            summarise(Clone = unique(Clone), 
+                      Tot_Dist = sum(Dist, na.rm = T),
+                      Mean_Speed = mean(Instant_Veloc, na.rm = T),
+                      X_Displ = (first(Location_Center_X)-last(Location_Center_X))^2,
+                      Y_Displ = (first(Location_Center_Y)-last(Location_Center_Y))^2,
+                      Displ = sqrt(X_Displ + Y_Displ),
+                      Persistence = (Displ/Tot_Dist))
+
+Data_Avg_Speed <- Data %>%
+  group_by(t, Clone) %>% 
+  summarise(Avg_Speed = mean(Instant_Veloc))
+
+x_limit = ifelse(abs(min(Data$X_Shift)) > abs(max(Data$X_Shift)), abs(min(Data$X_Shift)), abs(max(Data$X_Shift)))
+y_limit = ifelse(abs(min(Data$Y_Shift)) > abs(max(Data$Y_Shift)), abs(min(Data$Y_Shift)), abs(max(Data$Y_Shift)))
+```
+<br> 
+<br>
+Then we create all the plots
+- Total distance and mean speed will show basically the same information but with different units
+- Persistence will show the directionality of cell migration
+- Instantaneous velocity shows how migration velocity changes over time
+- Tracks_Lines_Centered shows the full track of all single cells, centered to the origin. This plot is useful to understand if the   migration is random or directed to a specific direction (persistence helps too). 
+```{r}
+
+Tot_Dist_Boxplot <- ggplot(Data_agg, aes(x = Clone, y = Tot_Dist,
+                     fill = Clone)) +
+                      geom_boxplot(notch = T, alpha=0.7) +
+                      geom_jitter(height = 0, width = 0.05, alpha=0.7, size = 3) +
+                      theme_bw()+
+                      theme(axis.text.x = element_blank(),
+                      axis.title.x = element_blank(),
+                      axis.ticks.x = element_blank())+
+                      ylab('Total Distance (um)')
+
+
+Mean_Speed_Boxplot <- ggplot(Data_agg, aes(x = Clone, y = Mean_Speed, fill = Clone)) +
+                      geom_boxplot(notch = T, alpha=0.7) +
+                      geom_jitter(height = 0, width = 0.05, alpha=0.7, size = 3) +
+                      theme_bw()+
+                      theme(axis.text.x = element_blank(),
+                      axis.title.x = element_blank(),
+                      axis.ticks.x = element_blank())+
+                      ylab('Mean Speed (um/min)')
+                    
+
+Persistence_Boxplot <- ggplot(Data_agg, aes(x = Clone, y = Persistence,
+                                         fill = Clone)) +
+                        geom_boxplot(notch = F, alpha=0.7) +
+                        geom_jitter(height = 0, width = 0.05, alpha=0.7, size = 3) +
+                        theme_bw()+
+                        theme(axis.text.x = element_blank(),
+                        axis.title.x = element_blank(),
+                        axis.ticks.x = element_blank())+
+                        ylab('Persistence')
+                   
+
+Inst_Veloc_Line <- ggplot(Data, aes(x = Time, y = Instant_Veloc))+ 
+                    geom_line(aes(group = Unique_ID))+
+                    geom_line(data=Data_Avg_Speed, aes(x = t*0.25, y = Avg_Speed), color = 'red', size = 1.5)+
+                    facet_wrap("Clone")+
+                    theme_bw()+
+                    xlab('Time (min)')+
+                    ylab('Instantaneous Velocity (um/min)')
+                    
+
+Tracks_Lines_Centered <- ggplot(Data, aes(x = X_Shift, y = Y_Shift))+ 
+                          geom_line(aes(group = Unique_ID), size = 0.3)+
+                          geom_point(x=0,y=0, col = "red", size = 2)+
+                          facet_wrap("Clone")+
+                          xlim(-x_limit, x_limit)+
+                          ylim(-y_limit, y_limit)+
+                          theme_bw()+
+                          xlab('X')+
+                          ylab('Y')
+```
+<br>
+<br>
+Here we display all the plots
+```{r}
+Tot_Dist_Boxplot
+Mean_Speed_Boxplot
+Persistence_Boxplot
+Inst_Veloc_Line
+Tracks_Lines_Centered
+
+```
+<br>
+<br>
+And then, if we want (just uncomment the code), we save all the plots in a new folder in PDF format
+```{r}
+# dir.create("../Plots")
+# setwd("../Plots")
+# 
+# 
+# Plots_List = list(Tot_Dist_Boxplot,
+#                   Mean_Speed_Boxplot,
+#                   Persistence_Boxplot,
+#                   Inst_Veloc_Line,
+#                   Tracks_Lines_Centered)
+# 
+# names(Plots_List) <- c("Tot_Dist_Boxplot",
+#                        "Mean_Speed_Boxplot",
+#                        "Persistence_Boxplot",
+#                        "Inst_Veloc_Line",
+#                        "Tracks_Lines_Centered")
+# lapply(names(Plots_List),
+#        function(x)
+#          ggsave(filename=paste(x,".pdf",sep=""), height = 7, width = 15, plot=Plots_List[[x]]))
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
