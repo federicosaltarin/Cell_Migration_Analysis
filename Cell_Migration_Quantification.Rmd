@@ -19,8 +19,8 @@ library(tcltk)
 <br>
 Then define some variables: Time_Res to define our time resolution and Pixel_Size to define the pixel size in um
 ```{r}
-Time_Res = 15
-Pixel_Size = 1.24
+Time_Res = 2
+Pixel_Size = 1
 ```
 <br> 
 <br>
@@ -38,9 +38,9 @@ Here we start the analysis:
 
 ```{r}
 Data <- Data %>%
-        mutate(Unique_ID = paste0(Condition, ID)) %>%
-        mutate(Time = Slice*Time_Res/60) %>%
-        group_by(Unique_ID) %>%
+        #mutate(Unique_ID = paste0(Condition, ID)) %>%
+        mutate(Time = Slice*Time_Res) %>%
+        group_by(Track) %>%
         mutate(X_Shift = c(0,diff(X))^2,
                Y_Shift = c(0,diff(Y))^2,
                Dist = sqrt(X_Shift + Y_Shift),
@@ -56,9 +56,8 @@ Data <- Data %>%
 * Persistence is the "directionality" of the cell -> 1 = totally linear 0 = very unlinear
 ```{r}
 Data_agg <- Data %>%
-            group_by(Unique_ID)%>%
-            summarise(Condition = unique(Condition), 
-                      Tot_Dist = sum(Dist, na.rm = T),
+            group_by(Track)%>%
+            summarise(Tot_Dist = sum(Dist, na.rm = T),
                       Mean_Speed = mean(Instant_Veloc, na.rm = T),
                       X_Displ = (first(X)-last(X))^2,
                       Y_Displ = (first(Y)-last(Y))^2,
@@ -72,7 +71,7 @@ x_limit and y_limit are used to define the limits for the full tracks plot
 
 ```{r}
 Data_Avg_Speed <- Data %>%
-  group_by(Time, Condition) %>% 
+  group_by(Time) %>% 
   summarise(Avg_Speed = mean(Instant_Veloc))
 
 x_limit = ifelse(abs(min(Data$X_Shift)) > abs(max(Data$X_Shift)), abs(min(Data$X_Shift)), abs(max(Data$X_Shift)))
@@ -85,58 +84,94 @@ Then we create all the plots
 - Persistence will show the directionality of cell migration
 - Instantaneous velocity shows how migration velocity changes over time
 - Tracks_Lines_Centered shows the full track of all single cells, centered to the origin. This plot is useful to understand if the   migration is random or directed to a specific direction (persistence helps too). 
+
+
+```{r}
+Data_agg <- Data_agg %>%
+            group_by(Condition)%>%
+            mutate(Avg_Speed = mean(Mean_Speed, na.rm = T),
+                   sd_Speed = sd(Mean_Speed, na.rm = T),
+                   Avg_Dist = mean(Tot_Dist, na.rm = T),
+                   sd_Dist = sd(Tot_Dist, na.rm = T),
+                   Avg_Pers = mean(Persistence, na.rm = T),
+                   sd_Pers = sd(Persistence, na.rm = T),
+                   )
+```
+
 ```{r}
 
-Tot_Dist_Boxplot <- ggplot(Data_agg, aes(x = Condition, y = Tot_Dist,
-                     fill = Condition)) +
-                      geom_boxplot(notch = T, alpha=0.7) +
-                      geom_jitter(height = 0, width = 0.05, alpha=0.7, size = 3) +
+Tot_Dist_Boxplot <- ggplot(Data_agg, aes(x = Condition, y = Tot_Dist,color=as.factor(Track), fill = Condition)) +
+                      #geom_boxplot(notch = F, alpha=0.7) +
+                      geom_jitter(height = 0, width = 0.1, alpha=0.7, size = 3) +
+                      geom_point(aes(x = Condition, y = Avg_Dist), color ="black", size = 5)+
+                      geom_errorbar(aes(ymin = Avg_Dist-sd_Dist, ymax = Avg_Dist+sd_Dist), color ="black", width=.1) +
                       theme_bw()+
                       theme(axis.text.x = element_blank(),
                       axis.title.x = element_blank(),
                       axis.ticks.x = element_blank())+
-                      ylab('Total Distance (um)')
+                      ylab('Total Distance (um)')+
+                      theme(axis.text.x = element_text(size = 16),
+                      axis.text.y = element_text(size = 16),
+                      axis.title.x = element_text(size = 20),
+                      axis.title.y = element_text(size = 20))
 
 
-Mean_Speed_Boxplot <- ggplot(Data_agg, aes(x = Condition, y = Mean_Speed, fill = Condition)) +
-                      geom_boxplot(notch = T, alpha=0.7) +
-                      geom_jitter(height = 0, width = 0.05, alpha=0.7, size = 3) +
+Mean_Speed_Boxplot <- ggplot(Data_agg, aes(x = Condition, y = Mean_Speed, fill = Condition,color=as.factor(Track))) +
+                      #geom_boxplot(notch = F, alpha=0.7) +
+                      geom_jitter(height = 0, width = 0.1, alpha=0.7, size = 3) +
+                      geom_point(aes(x = Condition, y = avg), color ="black", size = 5)+
+                      geom_errorbar(aes(ymin = avg-sd, ymax = avg+sd), color ="black", width=.1) +
                       theme_bw()+
                       theme(axis.text.x = element_blank(),
                       axis.title.x = element_blank(),
                       axis.ticks.x = element_blank())+
-                      ylab('Mean Speed (um/min)')
+                      ylab('Mean Speed (um/min)')+
+                      theme(axis.text.x = element_text(size = 16),
+                      axis.text.y = element_text(size = 16),
+                      axis.title.x = element_text(size = 20),
+                      axis.title.y = element_text(size = 20))
                     
 
-Persistence_Boxplot <- ggplot(Data_agg, aes(x = Condition, y = Persistence,
-                                         fill = Condition)) +
-                        geom_boxplot(notch = F, alpha=0.7) +
-                        geom_jitter(height = 0, width = 0.05, alpha=0.7, size = 3) +
+Persistence_Boxplot <- ggplot(Data_agg, aes(x = Condition, y = Persistence,color=as.factor(Track),fill = Condition)) +
+                        #geom_boxplot(notch = F, alpha=0.7) +
+                        geom_jitter(height = 0, width = 0.1, alpha=0.7, size = 3) +
+                        geom_point(aes(x = Condition, y = Avg_Pers), color ="black", size = 5)+
+                       geom_errorbar(aes(ymin = Avg_Pers-sd_Pers, ymax = Avg_Pers+sd_Pers), color ="black", width=.1) +
                         theme_bw()+
                         theme(axis.text.x = element_blank(),
                         axis.title.x = element_blank(),
                         axis.ticks.x = element_blank())+
-                        ylab('Persistence')
+                        ylab('Directionality ratio')+
+                        theme(axis.text.x = element_text(size = 16),
+                        axis.text.y = element_text(size = 16),
+                        axis.title.x = element_text(size = 20),
+                        axis.title.y = element_text(size = 20))
                    
 
-Inst_Veloc_Line <- ggplot(Data, aes(x = Time, y = Instant_Veloc))+ 
-                    geom_line(aes(group = Unique_ID))+
+Inst_Veloc_Line <- ggplot(Data, aes(x = Time, y = Instant_Veloc, color = as.factor(Track)))+ 
+                    geom_line(aes(group = Track))+
                     geom_line(data=Data_Avg_Speed, aes(x = Time, y = Avg_Speed), color = 'red', size = 1.5)+
-                    facet_wrap("Condition")+
                     theme_bw()+
                     xlab('Time (min)')+
-                    ylab('Instantaneous Velocity (um/min)')
+                    ylab('Instantaneous Velocity (um/min)')+
+                    theme(axis.text.x = element_text(size = 16),
+                    axis.text.y = element_text(size = 16),
+                    axis.title.x = element_text(size = 20),
+                    axis.title.y = element_text(size = 20))
                     
 
-Tracks_Lines_Centered <- ggplot(Data, aes(x = X_Shift, y = Y_Shift))+ 
-                          geom_line(aes(group = Unique_ID), size = 0.3)+
-                          geom_point(x=0,y=0, col = "red", size = 2)+
-                          facet_wrap("Condition")+
-                          xlim(-x_limit, x_limit)+
-                          ylim(-y_limit, y_limit)+
+Tracks_Lines_Centered <- ggplot(Data, aes(x = X_Shift, y = Y_Shift, color=as.factor(Track)))+ 
+                          geom_line(aes(group = Track), size = 1)+
+                          geom_point(x=0,y=0, col = "red", size = 3)+
                           theme_bw()+
-                          xlab('X')+
-                          ylab('Y')
+                          xlab('X (um)')+
+                          ylab('Y (um)')+
+                          scale_x_continuous(breaks=seq(-500, 500, by = 100))+
+                          scale_y_continuous(breaks=seq(-500, 500, by = 100))+
+                          theme(axis.text.x = element_text(size = 16),
+                          axis.text.y = element_text(size = 16),
+                          axis.title.x = element_text(size = 20),
+                          axis.title.y = element_text(size = 20))
 ```
 <br>
 <br>
@@ -153,24 +188,24 @@ Tracks_Lines_Centered
 <br>
 And then, if we want (just uncomment the code), we save all the plots in a new folder in PDF format
 ```{r}
-# dir.create("../Plots")
-# setwd("../Plots")
-# 
-# 
-# Plots_List = list(Tot_Dist_Boxplot,
-#                   Mean_Speed_Boxplot,
-#                   Persistence_Boxplot,
-#                   Inst_Veloc_Line,
-#                   Tracks_Lines_Centered)
-# 
-# names(Plots_List) <- c("Tot_Dist_Boxplot",
-#                        "Mean_Speed_Boxplot",
-#                        "Persistence_Boxplot",
-#                        "Inst_Veloc_Line",
-#                        "Tracks_Lines_Centered")
-# lapply(names(Plots_List),
-#        function(x)
-#          ggsave(filename=paste(x,".pdf",sep=""), height = 7, width = 15, plot=Plots_List[[x]]))
+dir.create("../Plots")
+setwd("../Plots")
+
+
+Plots_List = list(Tot_Dist_Boxplot,
+                  Mean_Speed_Boxplot,
+                  Persistence_Boxplot,
+                  Inst_Veloc_Line,
+                  Tracks_Lines_Centered)
+
+names(Plots_List) <- c("Tot_Dist_Jitter",
+                       "Mean_Speed_Jitter",
+                       "Persistence_Jitter",
+                       "Inst_Veloc_Line",
+                       "Tracks_Lines_Centered")
+lapply(names(Plots_List),
+       function(x)
+         ggsave(filename=paste(x,".pdf",sep=""), height = 7, width = 7, plot=Plots_List[[x]]))
 ```
 
 
