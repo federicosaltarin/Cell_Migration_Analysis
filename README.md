@@ -9,4 +9,5 @@ Required libraries:
 - ggplot2
 - data.table
 - tcltk
+- gganimate
 
