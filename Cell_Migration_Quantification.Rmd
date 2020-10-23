@@ -167,7 +167,7 @@ Inst_Veloc_Line <- ggplot(Data, aes(x = Time, y = Instant_Veloc, color = as.fact
                     
 
 Tracks_Path_Centered <- ggplot(Data, aes(x = X_Shift, y = Y_Shift, color=as.factor(Track)))+ 
-                          geom_path(aes(group = Track), size = 1)+
+                          geom_path(aes(group = Track), size = 1.5)+
                           geom_point(x=0,y=0, col = "red", size = 3)+
                           theme_bw()+
                           xlab('X (um)')+
@@ -217,21 +217,7 @@ lapply(names(Plots_List),
 
 Here, we render and save an animated gif plot that reveals cell tracks over time, transitioning by time
 ```{r}
-Tracks_Point_Centered <- ggplot(Data, aes(x = X_Shift, y = Y_Shift, color=as.factor(Track)))+ 
-                          geom_path(aes(group = Track), size = 1)+
-                          geom_point(x=0,y=0, col = "black", size = 5)+
-                          theme_bw()+
-                          xlab('X (um)')+
-                          ylab('Y (um)')+
-                          theme(axis.text.x = element_text(size = 16),
-                          axis.text.y = element_text(size = 16),
-                          axis.title.x = element_text(size = 20),
-                          axis.title.y = element_text(size = 20),
-                          legend.title = element_blank())+
-                          xlim(-400, 400)+
-                          ylim(-400, 400)
-
-Tracks_Point_Centered + 
+Tracks_Path_Centered + 
   transition_reveal(Time)
   #shadow_wake(wake_length = 0.5, alpha = FALSE)+
   #shadow_mark(size = 1)
