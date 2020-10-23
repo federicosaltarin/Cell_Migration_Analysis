@@ -14,6 +14,7 @@ library(dplyr)
 library(ggplot2)
 library(data.table)
 library(tcltk)
+library(gganimate)
 ```
 <br> 
 <br>
@@ -88,6 +89,7 @@ Then we create all the plots
 
 ```{r}
 Data_agg <- Data_agg %>%
+            mutate(Condition = "Cells") %>% 
             group_by(Condition)%>%
             mutate(Avg_Speed = mean(Mean_Speed, na.rm = T),
                    sd_Speed = sd(Mean_Speed, na.rm = T),
@@ -213,16 +215,11 @@ lapply(names(Plots_List),
          ggsave(filename=paste(x,".pdf",sep=""), height = 7, width = 7, plot=Plots_List[[x]]))
 ```
 
-Here we produce the same tracks path plot but this time we same 1 plot per timepoint. Later on we can assemble a stack image (in ImageJ for example) to produce a progression video that shows the tracks development over time.
+Here, we render and save an animated gif plot that reveals cell tracks over time, transitioning by time
 ```{r}
-#i = 24
-
-for(i in 1:max(Data$Slice)){
-  #print (i)
-  Data_plot = Data %>% filter(Slice <= i)
-  Tracks_Lines_Centered <- ggplot(Data_plot, aes(x = X_Shift, y = Y_Shift, color=as.factor(Track)))+ 
+Tracks_Point_Centered <- ggplot(Data, aes(x = X_Shift, y = Y_Shift, color=as.factor(Track)))+ 
                           geom_path(aes(group = Track), size = 1)+
-                          geom_point(x=0,y=0, col = "red", size = 3)+
+                          geom_point(x=0,y=0, col = "black", size = 5)+
                           theme_bw()+
                           xlab('X (um)')+
                           ylab('Y (um)')+
@@ -233,19 +230,14 @@ for(i in 1:max(Data$Slice)){
                           legend.title = element_blank())+
                           xlim(-400, 400)+
                           ylim(-400, 400)
-                          #scale_x_continuous(breaks=seq(-500, 500, by = 100)))+
-                          #scale_y_continuous(breaks=seq(-500, 500, by = 100))
-  Tracks_Path_Centered
-  ggsave(filename=paste("Tracks",i,".png",sep=""), height = 7, width = 7, plot=Tracks_Lines_Centered)
-}
-    
 
+Tracks_Point_Centered + 
+  transition_reveal(Time)
+  #shadow_wake(wake_length = 0.5, alpha = FALSE)+
+  #shadow_mark(size = 1)
 
-
-
-
+anim_save(filename="Tracks_Point_Centered.gif",height = 7, width = 7)
 ```
-
 
 
 
