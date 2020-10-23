@@ -113,7 +113,8 @@ Tot_Dist_Boxplot <- ggplot(Data_agg, aes(x = Condition, y = Tot_Dist,color=as.fa
                       theme(axis.text.x = element_text(size = 16),
                       axis.text.y = element_text(size = 16),
                       axis.title.x = element_text(size = 20),
-                      axis.title.y = element_text(size = 20))
+                      axis.title.y = element_text(size = 20),
+                      legend.title = element_blank())
 
 
 Mean_Speed_Boxplot <- ggplot(Data_agg, aes(x = Condition, y = Mean_Speed, fill = Condition,color=as.factor(Track))) +
@@ -129,14 +130,15 @@ Mean_Speed_Boxplot <- ggplot(Data_agg, aes(x = Condition, y = Mean_Speed, fill =
                       theme(axis.text.x = element_text(size = 16),
                       axis.text.y = element_text(size = 16),
                       axis.title.x = element_text(size = 20),
-                      axis.title.y = element_text(size = 20))
+                      axis.title.y = element_text(size = 20),
+                      legend.title = element_blank())
                     
 
 Persistence_Boxplot <- ggplot(Data_agg, aes(x = Condition, y = Persistence,color=as.factor(Track),fill = Condition)) +
                         #geom_boxplot(notch = F, alpha=0.7) +
                         geom_jitter(height = 0, width = 0.1, alpha=0.7, size = 3) +
                         geom_point(aes(x = Condition, y = Avg_Pers), color ="black", size = 5)+
-                       geom_errorbar(aes(ymin = Avg_Pers-sd_Pers, ymax = Avg_Pers+sd_Pers), color ="black", width=.1) +
+                        geom_errorbar(aes(ymin = Avg_Pers-sd_Pers, ymax = Avg_Pers+sd_Pers), color ="black", width=.1) +
                         theme_bw()+
                         theme(axis.text.x = element_blank(),
                         axis.title.x = element_blank(),
@@ -145,7 +147,8 @@ Persistence_Boxplot <- ggplot(Data_agg, aes(x = Condition, y = Persistence,color
                         theme(axis.text.x = element_text(size = 16),
                         axis.text.y = element_text(size = 16),
                         axis.title.x = element_text(size = 20),
-                        axis.title.y = element_text(size = 20))
+                        axis.title.y = element_text(size = 20),
+                        legend.title = element_blank())
                    
 
 Inst_Veloc_Line <- ggplot(Data, aes(x = Time, y = Instant_Veloc, color = as.factor(Track)))+ 
@@ -157,31 +160,33 @@ Inst_Veloc_Line <- ggplot(Data, aes(x = Time, y = Instant_Veloc, color = as.fact
                     theme(axis.text.x = element_text(size = 16),
                     axis.text.y = element_text(size = 16),
                     axis.title.x = element_text(size = 20),
-                    axis.title.y = element_text(size = 20))
+                    axis.title.y = element_text(size = 20),
+                    legend.title = element_blank())
                     
 
-Tracks_Lines_Centered <- ggplot(Data, aes(x = X_Shift, y = Y_Shift, color=as.factor(Track)))+ 
-                          geom_line(aes(group = Track), size = 1)+
+Tracks_Path_Centered <- ggplot(Data, aes(x = X_Shift, y = Y_Shift, color=as.factor(Track)))+ 
+                          geom_path(aes(group = Track), size = 1)+
                           geom_point(x=0,y=0, col = "red", size = 3)+
                           theme_bw()+
                           xlab('X (um)')+
                           ylab('Y (um)')+
-                          scale_x_continuous(breaks=seq(-500, 500, by = 100))+
-                          scale_y_continuous(breaks=seq(-500, 500, by = 100))+
                           theme(axis.text.x = element_text(size = 16),
                           axis.text.y = element_text(size = 16),
                           axis.title.x = element_text(size = 20),
-                          axis.title.y = element_text(size = 20))
+                          axis.title.y = element_text(size = 20),
+                          legend.title = element_blank())+
+                          xlim(-400, 400)+
+                          ylim(-400, 400)
 ```
 <br>
 <br>
 Here we display all the plots
 ```{r}
 Tot_Dist_Boxplot
-Mean_Speed_Boxplot
+#Mean_Speed_Boxplot
 Persistence_Boxplot
 Inst_Veloc_Line
-Tracks_Lines_Centered
+Tracks_Path_Centered
 
 ```
 <br>
@@ -206,6 +211,39 @@ names(Plots_List) <- c("Tot_Dist_Jitter",
 lapply(names(Plots_List),
        function(x)
          ggsave(filename=paste(x,".pdf",sep=""), height = 7, width = 7, plot=Plots_List[[x]]))
+```
+
+Here we produce the same tracks path plot but this time we same 1 plot per timepoint. Later on we can assemble a stack image (in ImageJ for example) to produce a progression video that shows the tracks development over time.
+```{r}
+#i = 24
+
+for(i in 1:max(Data$Slice)){
+  #print (i)
+  Data_plot = Data %>% filter(Slice <= i)
+  Tracks_Lines_Centered <- ggplot(Data_plot, aes(x = X_Shift, y = Y_Shift, color=as.factor(Track)))+ 
+                          geom_path(aes(group = Track), size = 1)+
+                          geom_point(x=0,y=0, col = "red", size = 3)+
+                          theme_bw()+
+                          xlab('X (um)')+
+                          ylab('Y (um)')+
+                          theme(axis.text.x = element_text(size = 16),
+                          axis.text.y = element_text(size = 16),
+                          axis.title.x = element_text(size = 20),
+                          axis.title.y = element_text(size = 20),
+                          legend.title = element_blank())+
+                          xlim(-400, 400)+
+                          ylim(-400, 400)
+                          #scale_x_continuous(breaks=seq(-500, 500, by = 100)))+
+                          #scale_y_continuous(breaks=seq(-500, 500, by = 100))
+  Tracks_Path_Centered
+  ggsave(filename=paste("Tracks",i,".png",sep=""), height = 7, width = 7, plot=Tracks_Lines_Centered)
+}
+    
+
+
+
+
+
 ```
 
 
